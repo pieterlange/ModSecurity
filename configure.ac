@@ -698,6 +698,9 @@ if test "$build_mlogc" -ne 0; then
 CHECK_CURL()
 fi
 
+CHECK_SSDEEP()
+AC_SEARCH_LIBS([fuzzy_hash_buf], [fuzzy])
+
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([tools/Makefile])
 if test "$build_alp2" -ne 0; then

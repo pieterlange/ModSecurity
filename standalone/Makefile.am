@@ -46,7 +46,8 @@ standalone_la_CFLAGS = -DVERSION_NGINX \
     @LIBXML2_CFLAGS@ \
     @LUA_CFLAGS@ \
     @MODSEC_EXTRA_CFLAGS@ \
-    @PCRE_CFLAGS@
+    @PCRE_CFLAGS@ \
+    @SSDEEP_CFLAGS@
 
 standalone_la_CPPFLAGS = @APR_CPPFLAGS@ \
     @LIBXML2_CPPFLAGS@ \
@@ -65,7 +66,8 @@ standalone_la_LDFLAGS = -module -avoid-version \
     @APXS_LDFLAGS@ \
     @LIBXML2_LDFLAGS@ \
     @LUA_LDFLAGS@ \
-    @PCRE_LDFLAGS@
+    @PCRE_LDFLAGS@ \
+    @SSDEEP_LDFLAGS@
 endif
 
 if HPUX
@@ -75,7 +77,8 @@ standalone_la_LDFLAGS = -module -avoid-version \
     @APXS_LDFLAGS@ \
     @LIBXML2_LDFLAGS@ \
     @LUA_LDFLAGS@ \
-    @PCRE_LDFLAGS@
+    @PCRE_LDFLAGS@ \
+    @SSDEEP_LDFLAGS@
 endif
 
 if MACOSX
@@ -85,7 +88,8 @@ standalone_la_LDFLAGS = -module -avoid-version \
     @APXS_LDFLAGS@ \
     @LIBXML2_LDFLAGS@ \
     @LUA_LDFLAGS@ \
-    @PCRE_LDFLAGS@
+    @PCRE_LDFLAGS@ \
+    @SSDEEP_LDFLAGS@
 endif
 
 if SOLARIS
@@ -95,7 +99,8 @@ standalone_la_LDFLAGS = -module -avoid-version \
     @APXS_LDFLAGS@ \
     @LIBXML2_LDFLAGS@ \
     @LUA_LDFLAGS@ \
-    @PCRE_LDFLAGS@
+    @PCRE_LDFLAGS@ \
+    @SSDEEP_LDFLAGS@
 endif
 
 if LINUX
@@ -105,7 +110,8 @@ standalone_la_LDFLAGS = -no-undefined -module -avoid-version \
     @APXS_LDFLAGS@ \
     @LIBXML2_LDFLAGS@ \
     @LUA_LDFLAGS@ \
-    @PCRE_LDFLAGS@
+    @PCRE_LDFLAGS@ \
+    @SSDEEP_LDFLAGS@
 endif
 
 if FREEBSD
@@ -115,7 +121,8 @@ standalone_la_LDFLAGS = -no-undefined -module -avoid-version \
     @APXS_LDFLAGS@ \
     @LIBXML2_LDFLAGS@ \
     @LUA_LDFLAGS@ \
-    @PCRE_LDFLAGS@
+    @PCRE_LDFLAGS@ \
+    @SSDEEP_LDFLAGS@
 endif
 
 if OPENBSD
@@ -125,7 +132,8 @@ standalone_la_LDFLAGS = -no-undefined -module -avoid-version \
     @APXS_LDFLAGS@ \
     @LIBXML2_LDFLAGS@ \
     @LUA_LDFLAGS@ \
-    @PCRE_LDFLAGS@
+    @PCRE_LDFLAGS@ \
+    @SSDEEP_LDFLAGS@
 endif
 
 if NETBSD
@@ -135,5 +143,7 @@ standalone_la_LDFLAGS = -no-undefined -module -avoid-version \
     @APXS_LDFLAGS@ \
     @LIBXML2_LDFLAGS@ \
     @LUA_LDFLAGS@ \
-    @PCRE_LDFLAGS@
+    @PCRE_LDFLAGS@ \
+    @SSDEEP_LDFLAGS@
 endif
+

@@ -36,7 +36,8 @@ mod_security2_la_CFLAGS = @APR_CFLAGS@ \
     @LIBXML2_CFLAGS@ \
     @LUA_CFLAGS@ \
     @MODSEC_EXTRA_CFLAGS@ \
-    @PCRE_CFLAGS@ 
+    @PCRE_CFLAGS@  \
+    @SSDEEP_CFLAGS@
 
 
 mod_security2_la_CPPFLAGS = @APR_CPPFLAGS@ \
@@ -56,7 +57,8 @@ mod_security2_la_LDFLAGS = -module -avoid-version \
     @APXS_LDFLAGS@ \
     @LIBXML2_LDFLAGS@ \
     @LUA_LDFLAGS@ \
-    @PCRE_LDFLAGS@
+    @PCRE_LDFLAGS@ \
+    @SSDEEP_LDFLAGS@
 endif
 
 if HPUX
@@ -66,7 +68,8 @@ mod_security2_la_LDFLAGS = -module -avoid-version \
     @APXS_LDFLAGS@ \
     @LIBXML2_LDFLAGS@ \
     @LUA_LDFLAGS@ \
-    @PCRE_LDFLAGS@
+    @PCRE_LDFLAGS@ \
+    @SSDEEP_LDFLAGS@
 endif
 
 if MACOSX
@@ -76,7 +79,8 @@ mod_security2_la_LDFLAGS = -module -avoid-version \
     @APXS_LDFLAGS@ \
     @LIBXML2_LDFLAGS@ \
     @LUA_LDFLAGS@ \
-    @PCRE_LDFLAGS@
+    @PCRE_LDFLAGS@ \
+    @SSDEEP_LDFLAGS@
 endif
 
 if SOLARIS
@@ -86,7 +90,8 @@ mod_security2_la_LDFLAGS = -module -avoid-version \
     @APXS_LDFLAGS@ \
     @LIBXML2_LDFLAGS@ \
     @LUA_LDFLAGS@ \
-    @PCRE_LDFLAGS@
+    @PCRE_LDFLAGS@ \
+    @SSDEEP_LDFLAGS@
 endif
 
 if LINUX
@@ -96,7 +101,8 @@ mod_security2_la_LDFLAGS = -no-undefined -module -avoid-version -R @PCRE_LD_PATH
     @APXS_LDFLAGS@ \
     @LIBXML2_LDFLAGS@ \
     @LUA_LDFLAGS@ \
-    @PCRE_LDFLAGS@
+    @PCRE_LDFLAGS@ \
+    @SSDEEP_LDFLAGS@
 endif
 
 if FREEBSD
@@ -106,7 +112,8 @@ mod_security2_la_LDFLAGS = -no-undefined -module -avoid-version \
     @APXS_LDFLAGS@ \
     @LIBXML2_LDFLAGS@ \
     @LUA_LDFLAGS@ \
-    @PCRE_LDFLAGS@
+    @PCRE_LDFLAGS@ \
+    @SSDEEP_LDFLAGS@
 endif
 
 if OPENBSD
@@ -116,7 +123,8 @@ mod_security2_la_LDFLAGS = -no-undefined -module -avoid-version \
     @APXS_LDFLAGS@ \
     @LIBXML2_LDFLAGS@ \
     @LUA_LDFLAGS@ \
-    @PCRE_LDFLAGS@
+    @PCRE_LDFLAGS@ \
+    @SSDEEP_LDFLAGS@
 endif
 
 if NETBSD
@@ -126,7 +134,8 @@ mod_security2_la_LDFLAGS = -no-undefined -module -avoid-version \
     @APXS_LDFLAGS@ \
     @LIBXML2_LDFLAGS@ \
     @LUA_LDFLAGS@ \
-    @PCRE_LDFLAGS@
+    @PCRE_LDFLAGS@ \
+    @SSDEEP_LDFLAGS@
 endif
 
 if LINUX
