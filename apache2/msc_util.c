@@ -2387,7 +2387,6 @@ char *construct_single_var(modsec_rec *msr, char *name) {
     return (char *)vx->value;
 }
 
-
 /**
  * @brief Transforms an apr_array_header_t to a text buffer
  *
@@ -2450,5 +2449,32 @@ int msc_headers_to_buffer(const apr_array_header_t *arr, char *buffer,
 
 not_enough_memory:
     return headers_length;
+}
+
+int read_line(char *buf, int len, FILE *fp)
+{
+    char *tmp;
+
+    if (buf == NULL)
+    {
+        return -1;
+    }
+
+    memset(buf, '\0', len*sizeof(char));
+
+    if (fgets(buf, len, fp) == NULL)
+    {
+        *buf = '\0';
+        return 0;
+    }
+    else
+    {
+        if ((tmp = strrchr(buf, '\n')) != NULL)
+        {
+            *tmp = '\0';
+        }
+    }
+
+    return 1;
 }
 
