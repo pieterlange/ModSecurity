@@ -13,6 +13,7 @@ standalone_la_SOURCES = ../apache2/acmp.c \
     ../apache2/modsecurity.c \
     ../apache2/msc_status_engine.c \
     ../apache2/msc_crypt.c \
+    ../apache2/msc_escape.c \
     ../apache2/msc_geo.c \
     ../apache2/msc_gsb.c \
     ../apache2/msc_json.c \

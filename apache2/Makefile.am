@@ -12,6 +12,7 @@ mod_security2_la_SOURCES = acmp.c \
     modsecurity.c \
     msc_status_engine.c \
     msc_crypt.c \
+    msc_escape.c \
     msc_geo.c \
     msc_gsb.c \
     msc_json.c \

@@ -6,6 +6,7 @@ msc_test_SOURCES = msc_test.c \
     $(top_srcdir)/apache2/libinjection/libinjection_xss.c \
     $(top_srcdir)/apache2/modsecurity.c \
     $(top_srcdir)/apache2/msc_crypt.c \
+    $(top_srcdir)/apache2/msc_escape.c \
     $(top_srcdir)/apache2/msc_geo.c \
     $(top_srcdir)/apache2/msc_gsb.c \
     $(top_srcdir)/apache2/msc_json.c \

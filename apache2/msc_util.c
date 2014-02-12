@@ -25,6 +25,7 @@
 #include <apr_lib.h>
 #include "modsecurity_config.h"
 
+#include "msc_escape.h"
 /**
  * NOTE: Be careful as these can ONLY be used on static values for X.
  * (i.e. VALID_HEX(c++) will NOT work)
@@ -70,7 +71,6 @@ static const short b64_reverse_t[256] = {
   -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2, -2
 };
 
-static unsigned char *c2x(unsigned what, unsigned char *where);
 static unsigned char x2c(unsigned char *what);
 static unsigned char xsingle2c(unsigned char *what);
 
@@ -737,7 +737,7 @@ char *url_encode(apr_pool_t *mp, char *input, unsigned int input_len, int *chang
                 *d++ = c;
             } else {
                 *d++ = '%';
-                c2x(c, (unsigned char *)d);
+                msc_c2x(c, (unsigned char *)d);
                 d += 2;
                 *changed = 1;
             }
@@ -780,7 +780,7 @@ char *strnurlencat(char *destination, char *source, unsigned int maxlen) {
             } else {
                 if (maxlen >= 3) {
                     *d++ = '%';
-                    c2x(c, (unsigned char *)d);
+                    msc_c2x(c, (unsigned char *)d);
                     d += 2;
                     maxlen -= 3;
                 } else {
@@ -1191,7 +1191,7 @@ char *strtolower_inplace(unsigned char *str) {
  * Converts a single byte into its hexadecimal representation.
  * Will overwrite two bytes at the destination.
  */
-static unsigned char *c2x(unsigned what, unsigned char *where) {
+unsigned char *msc_c2x(unsigned what, unsigned char *where) {
     static const char c2x_table[] = "0123456789abcdef";
 
     what = what & 0xff;
@@ -1250,7 +1250,7 @@ char *log_escape_raw(apr_pool_t *mp, const unsigned char *text, unsigned long in
     for (i = 0, j = 0; i < text_length; i++, j += 4) {
         ret[j] = '\\';
         ret[j+1] = 'x';
-        c2x(text[i], ret+j+2);
+        msc_c2x(text[i], ret+j+2);
     }
     ret[text_length * 4] = '\0';
 
@@ -1265,7 +1265,7 @@ char *log_escape_nul(apr_pool_t *mp, const unsigned char *text, unsigned long in
         if (text[i] == '\0') {
             ret[j] = '\\';
             ret[j+1] = 'x';
-            c2x(text[i], ret+j+2);
+            msc_c2x(text[i], ret+j+2);
             j += 4;
         }
         else {
@@ -1293,7 +1293,7 @@ char *log_escape_hex(apr_pool_t *mp, const unsigned char *text, unsigned long in
         {
             ret[j] = '\\';
             ret[j+1] = 'x';
-            c2x(text[i], ret+j+2);
+            msc_c2x(text[i], ret+j+2);
             j += 4;
         }
         else {
@@ -1312,141 +1312,45 @@ char *log_escape_hex(apr_pool_t *mp, const unsigned char *text, unsigned long in
 static char *_log_escape(apr_pool_t *mp, const unsigned char *input, unsigned long int input_len,
         int escape_quotes, int escape_colon, int escape_re)
 {
-    unsigned char *d = NULL;
-    char *ret = NULL;
-    unsigned long int i;
+    int length = 0;
+    int res = 0;
+    int options = MSC_ESCAPE_SPECIAL;
+    char *buffer = NULL;
 
-    if (input == NULL) return NULL;
+    if (escape_quotes)
+        options |= MSC_ESCAPE_QUOTES;
 
-    ret = apr_palloc(mp, input_len * 4 + 1);
-    if (ret == NULL) return NULL;
-    d = (unsigned char *)ret;
+    if (escape_colon)
+        options |= MSC_ESCAPE_COLON;
 
-    i = 0;
-    while(i < input_len) {
-        switch(input[i]) {
-            case ':' :
-                if (escape_colon) {
-                    *d++ = '\\';
-                    *d++ = ':';
-                } else {
-                    *d++ = input[i];
-                }
-                break;
-            case '"' :
-                if (escape_quotes) {
-                    *d++ = '\\';
-                    *d++ = '"';
-                } else {
-                    *d++ = input[i];
-                }
-                break;
-            case '+' :
-                if (escape_re) {
-                    *d++ = '\\';
-                    *d++ = '+';
-                } else {
-                    *d++ = input[i];
-                }
-                break;
-            case '.' :
-                if (escape_re) {
-                    *d++ = '\\';
-                    *d++ = '.';
-                } else {
-                    *d++ = input[i];
-                }
-                break;
-            case ']' :
-                if (escape_re) {
-                    *d++ = '\\';
-                    *d++ = ']';
-                } else {
-                    *d++ = input[i];
-                }
-                break;
-            case '[' :
-                if (escape_re) {
-                    *d++ = '\\';
-                    *d++ = '[';
-                } else {
-                    *d++ = input[i];
-                }
-                break;
-            case '(' :
-                if (escape_re) {
-                    *d++ = '\\';
-                    *d++ = '(';
-                } else {
-                    *d++ = input[i];
-                }
-                break;
-            case ')' :
-                if (escape_re) {
-                    *d++ = '\\';
-                    *d++ = ')';
-                } else {
-                    *d++ = input[i];
-                }
-                break;
-            case '?' :
-                if (escape_re) {
-                    *d++ = '\\';
-                    *d++ = '?';
-                } else {
-                    *d++ = input[i];
-                }
-                break;
-            case '/' :
-                if (escape_re) {
-                    *d++ = '\\';
-                    *d++ = '/';
-                } else {
-                    *d++ = input[i];
-                }
-                break;
-            case '\b' :
-                *d++ = '\\';
-                *d++ = 'b';
-                break;
-            case '\n' :
-                *d++ = '\\';
-                *d++ = 'n';
-                break;
-            case '\r' :
-                *d++ = '\\';
-                *d++ = 'r';
-                break;
-            case '\t' :
-                *d++ = '\\';
-                *d++ = 't';
-                break;
-            case '\v' :
-                *d++ = '\\';
-                *d++ = 'v';
-                break;
-            case '\\' :
-                *d++ = '\\';
-                *d++ = '\\';
-                break;
-            default :
-                if ((input[i] <= 0x1f)||(input[i] >= 0x7f)) {
-                    *d++ = '\\';
-                    *d++ = 'x';
-                    c2x(input[i], d);
-                    d += 2;
-                } else {
-                    *d++ = input[i];
-                }
-                break;
-        }
+    if (escape_re)
+        options |= MSC_ESCAPE_REGEXP;
 
-        i++;
+    /* Make sure the string ends with \0 */
+    if (input[input_len - 1] != '\0') {
+        unsigned char *null_terminated_input = apr_palloc(mp, sizeof(char)*input_len+1);
+        memcpy(null_terminated_input, input, sizeof(char)*input_len+1);
+        null_terminated_input[input_len] = '\0';
+        input = null_terminated_input;
     }
 
-    *d = 0;
+    length = msc_escape(input, NULL, 0, options);
+    buffer = apr_palloc(mp, sizeof(char)*length);
 
-    return ret;
+    if (!buffer)
+        goto failed_not_enough_memory;
+
+    res = msc_escape(input, buffer, length, options);
+
+    /* If something went wrond */
+    if (res != length)
+        goto failed_size_mismatch;
+
+    return buffer;
+
+failed_not_enough_memory:
+failed_size_mismatch:
+    return NULL;
 }
 
 /**
