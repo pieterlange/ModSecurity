@@ -30,7 +30,6 @@
 #include <stdio.h>
 #include <string.h>
 
-
 /*
  *******************************************************************************
  *******************************************************************************
@@ -45,9 +44,6 @@ typedef struct acmp_btree_node_t acmp_btree_node_t;
 struct acmp_node_t {
     acmp_utf8_char_t letter;
     int  is_last;
-    acmp_callback_t callback;
-    void *callback_data;
-    int depth;
 
     acmp_node_t *child;
     acmp_node_t *sibling;
@@ -56,11 +52,6 @@ struct acmp_node_t {
     acmp_node_t *o_match;
 
     acmp_btree_node_t *btree;
-
-    apr_size_t hit_count;
-
-    char *text;
-    char *pattern;
 };
 
 struct acmp_btree_node_t {
@@ -260,7 +251,6 @@ static void acmp_clone_node_no_state(acmp_node_t *from, acmp_node_t *to) {
     to->child = NULL;
     to->sibling = NULL;
     to->fail = NULL;
-    to->hit_count = 0;
 }
 
 static inline acmp_node_t *acmp_btree_find(acmp_node_t *node, acmp_utf8_char_t letter) {
@@ -394,7 +384,6 @@ static apr_status_t acmp_connect_fail_branches(ACMP *parser) {
 
     if (parser->is_failtree_done != 0) return APR_SUCCESS;
 
-    parser->root_node->text = "";
     arr  = apr_array_make(parser->pool, 32, sizeof(acmp_node_t *));
     arr2 = apr_array_make(parser->pool, 32, sizeof(acmp_node_t *));
 
@@ -501,7 +490,7 @@ apr_status_t acmp_prepare(ACMP *parser) {
 apr_status_t acmp_add_pattern(ACMP *parser, const char *pattern,
         acmp_callback_t callback, void *data, apr_size_t len)
 {
-    size_t length, i, j;
+    size_t length, i;
     acmp_utf8_char_t *ucs_chars;
     acmp_node_t *parent, *child;
 
@@ -522,24 +511,13 @@ apr_status_t acmp_add_pattern(ACMP *parser, const char *pattern,
         child = acmp_child_for_code(parent, letter);
         if (child == NULL) {
             child = apr_pcalloc(parser->pool, sizeof(acmp_node_t));
-            /* ENH: Check alloc succeded */
-            child->pattern = "";
             child->letter = letter;
-            child->depth = i;
-            child->text = apr_pcalloc(parser->pool, strlen(pattern) + 2);
-            /* ENH: Check alloc succeded */
-            for (j = 0; j <= i; j++) child->text[j] = pattern[j];
         }
         if (i == length - 1) {
             if (child->is_last == 0) {
                 parser->dict_count++;
                 child->is_last = 1;
-                child->pattern = apr_pcalloc(parser->pool, strlen(pattern) + 2);
-                /* ENH: Check alloc succeded */
-                strcpy(child->pattern, pattern);
             }
-            child->callback = callback;
-            child->callback_data = data;
         }
         acmp_add_node_to_parent(parent, child);
         parent = child;
@@ -553,10 +531,13 @@ apr_status_t acmp_add_pattern(ACMP *parser, const char *pattern,
 /**
  * Process the data using ACMPT to keep state, and ACMPT's parser to keep the tree
  */
-apr_status_t acmp_process_quick(ACMPT *acmpt, const char **match, const char *data, apr_size_t len) {
+apr_status_t acmp_process_quick(apr_pool_t *mp, ACMPT *acmpt, const char **match,
+        const char *data, apr_size_t len) {
     ACMP *parser;
     acmp_node_t *node, *go_to;
     const char *end;
+    char *text;
+    int i = 0;
 
     if (acmpt->parser->is_failtree_done == 0) {
         acmp_prepare(acmpt->parser);
@@ -567,8 +548,16 @@ apr_status_t acmp_process_quick(ACMPT *acmpt, const char **match, const char *da
     node = acmpt->ptr;
     end = data + len;
 
+    text = apr_pcalloc(mp, sizeof(char) * (len + /* null terminator: */ 1));
+
     while (data < end) {
         acmp_utf8_char_t letter = (unsigned char)*data++;
+        i++;
+
+        if (i >= len)
+            goto end;
+
+        text[i-1] = letter;
 
         if (parser->is_case_sensitive == 0) letter = utf8_lcase(letter);
 
@@ -577,7 +566,7 @@ apr_status_t acmp_process_quick(ACMPT *acmpt, const char **match, const char *da
             go_to = acmp_goto(node, letter);
             if (go_to != NULL) {
                 if (go_to->is_last) {
-                    *match = go_to->text;
+                    *match = text;
                     return 1;
                 }
             }
@@ -588,10 +577,11 @@ apr_status_t acmp_process_quick(ACMPT *acmpt, const char **match, const char *da
 
         /* If node has o_match, then we found a pattern */
         if (node->o_match != NULL) {
-            *match = node->text;
+            *match = text;
             return 1;
         }
     }
+end:
     acmpt->ptr = node;
     return 0;
 }

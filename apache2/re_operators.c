@@ -1304,7 +1304,7 @@ static int msre_op_pm_execute(modsec_rec *msr, msre_rule *rule, msre_var *var, c
     pt.parser = (ACMP *)rule->op_param_data;
     pt.ptr = NULL;
 
-    rc = acmp_process_quick(&pt, &match, var->value, var->value_len);
+    rc = acmp_process_quick(msr->mp, &pt, &match, var->value, var->value_len);
     if (rc) {
         char *match_escaped = log_escape(msr->mp, match ? match : "<Unknown Match>");
 

@@ -110,7 +110,7 @@ ACMPT *acmp_duplicate_quick(ACMP *parser, apr_pool_t *pool);
 /**
  * Process the data using ACMPT to keep state, and ACMPT's parser to keep the tree
  */
-apr_status_t acmp_process_quick(ACMPT *acmpt, const char **match, const char *data, apr_size_t len);
+apr_status_t acmp_process_quick(apr_pool_t *mp, ACMPT *acmpt, const char **match, const char *data, apr_size_t len);
 
 /**
  * Prepares parser for searching

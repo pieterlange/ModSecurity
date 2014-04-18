@@ -363,7 +363,7 @@ int do_hash_method(modsec_rec *msr, char *link, int type)   {
                         pt.parser = (ACMP *)em[i]->param_data;
                         pt.ptr = NULL;
 
-                        rc = acmp_process_quick(&pt, &match, link, strlen(link));
+                        rc = acmp_process_quick(msr->mp, &pt, &match, link, strlen(link));
 
                         if (rc) {
                             return 1;
@@ -418,7 +418,7 @@ int do_hash_method(modsec_rec *msr, char *link, int type)   {
                         pt.parser = (ACMP *)em[i]->param_data;
                         pt.ptr = NULL;
 
-                        rc = acmp_process_quick(&pt, &match, link, strlen(link));
+                        rc = acmp_process_quick(msr->mp, &pt, &match, link, strlen(link));
 
                         if (rc) {
                             return 1;
@@ -473,7 +473,7 @@ int do_hash_method(modsec_rec *msr, char *link, int type)   {
                         pt.parser = (ACMP *)em[i]->param_data;
                         pt.ptr = NULL;
 
-                        rc = acmp_process_quick(&pt, &match, link, strlen(link));
+                        rc = acmp_process_quick(msr->mp, &pt, &match, link, strlen(link));
 
                         if (rc) {
                             return 1;
@@ -528,7 +528,7 @@ int do_hash_method(modsec_rec *msr, char *link, int type)   {
                         pt.parser = (ACMP *)em[i]->param_data;
                         pt.ptr = NULL;
 
-                        rc = acmp_process_quick(&pt, &match, link, strlen(link));
+                        rc = acmp_process_quick(msr->mp, &pt, &match, link, strlen(link));
 
                         if (rc) {
                             return 1;
@@ -583,7 +583,7 @@ int do_hash_method(modsec_rec *msr, char *link, int type)   {
                         pt.parser = (ACMP *)em[i]->param_data;
                         pt.ptr = NULL;
 
-                        rc = acmp_process_quick(&pt, &match, link, strlen(link));
+                        rc = acmp_process_quick(msr->mp, &pt, &match, link, strlen(link));
 
                         if (rc) {
                             return 1;
