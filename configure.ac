@@ -6,7 +6,7 @@ dnl
 
 AC_PREREQ(2.63)
 
-AC_INIT([modsecurity], [2.8], [support@modsecurity.org])
+AC_INIT([modsecurity], [2.7], [support@modsecurity.org])
 
 AC_CONFIG_MACRO_DIR([build])
 AC_CONFIG_SRCDIR([LICENSE])
@@ -33,7 +33,7 @@ AC_PATH_PROGS(ENV_CMD, [env printenv], )
 
 # Checks for header files.
 AC_HEADER_STDC
-AC_CHECK_HEADERS([fcntl.h limits.h stdlib.h string.h unistd.h sys/types.h sys/stat.h sys/utsname.h])
+AC_CHECK_HEADERS([fcntl.h limits.h stdlib.h string.h unistd.h sys/types.h sys/stat.h])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_C_CONST
@@ -701,6 +701,8 @@ fi
 # Check for YAJL libs (for JSON body processor)
 CHECK_YAJL()
 #AC_SEARCH_LIBS([yajl_alloc], [yajl])
+
+CHECK_JSONC()
 
 AC_CONFIG_FILES([Makefile])
 AC_CONFIG_FILES([tools/Makefile])

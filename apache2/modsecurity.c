@@ -22,6 +22,7 @@
 #include "msc_json.h"
 #include "msc_xml.h"
 #include "apr_version.h"
+#include <json-c/json.h>
 
 unsigned long int DSOLOCAL unicode_codepage = 0;
 
@@ -30,23 +31,21 @@ int DSOLOCAL *unicode_map_table = NULL;
 /**
  * Format an alert message.
  */
-const char * msc_alert_message(modsec_rec *msr, msre_actionset *actionset, const char *action_message,
+json_object * msc_alert_message(modsec_rec *msr, msre_actionset *actionset, const char *action_message,
     const char *rule_message)
 {
-    const char *message = NULL;
+    json_object *jobj = json_object_new_object();
 
     if (rule_message == NULL) rule_message = "Unknown error.";
 
-    if (action_message == NULL) {
-        message = apr_psprintf(msr->mp, "%s%s",
-            rule_message, msre_format_metadata(msr, actionset));
-    }
-    else {
-        message = apr_psprintf(msr->mp, "%s %s%s", action_message,
-            rule_message, msre_format_metadata(msr, actionset));
+    if (action_message != NULL) {
+        json_object_object_add(jobj, "Actionset Message", json_object_new_string(action_message));		
     }
 
-    return message;
+    json_object_object_add(jobj, "Rule Message", json_object_new_string(rule_message));
+    json_object_object_add(jobj, "Actionset Data", msre_format_metadata(msr, actionset));
+
+    return jobj;
 }
 
 /**
@@ -55,9 +54,11 @@ const char * msc_alert_message(modsec_rec *msr, msre_actionset *actionset, const
 void msc_alert(modsec_rec *msr, int level, msre_actionset *actionset, const char *action_message,
     const char *rule_message)
 {
-    const char *message = msc_alert_message(msr, actionset, action_message, rule_message);
-
-    msr_log(msr, level, "%s", message);
+    // msr_log returns 1 if the log level was high enough to warrant writing to the http daemon error log
+    // we can in turn use this to determine if the alert is worth pushing to msr->alerts
+    if(msr_log(msr, level, "%s", json_object_to_json_string(msc_alert_message(msr, actionset, action_message, rule_message))) == 1) {
+        *(json_object **)apr_array_push(msr->alerts) = msc_alert_message(msr, actionset, action_message, rule_message);
+    }
 }
 
 #if 0

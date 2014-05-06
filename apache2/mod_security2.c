@@ -33,6 +33,8 @@
 
 #include "apr_version.h"
 
+#include <json-c/json.h>
+
 #if defined(WITH_LUA)
 #include "msc_lua.h"
 #endif
@@ -367,12 +369,6 @@ int perform_interception(modsec_rec *msr) {
             break;
     }
 
-    /* If the level is not high enough to add an alert message, but "auditlog"
-     * is enabled, then still add the message. */
-    if ((log_level > 3) && (actionset->auditlog != 0)) {
-        *(const char **)apr_array_push(msr->alerts) = msc_alert_message(msr, actionset, NULL, message);
-    }
-
     /* Log the message now. */
     msc_alert(msr, log_level, actionset, message, msr->intercept_message);
 
@@ -505,7 +501,7 @@ static modsec_rec *create_tx_context(request_rec *r) {
 
     /* Populate tx fields */
     msr->error_messages = apr_array_make(msr->mp, 5, sizeof(error_message_t *));
-    msr->alerts = apr_array_make(msr->mp, 5, sizeof(char *));
+    msr->alerts = apr_array_make(msr->mp, 5, sizeof(json_object *));
 
     msr->server_software = real_server_signature;
     msr->local_addr = r->connection->local_ip;

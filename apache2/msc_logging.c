@@ -25,6 +25,8 @@
 #include "apr_version.h"
 #include <libxml/xmlversion.h>
 
+#include <json-c/json.h>
+
 /**
  * Write the supplied data to the audit log (if the FD is ready), update
  * the size counters, update the hash context.
@@ -353,32 +355,38 @@ static void sanitize_request_line(modsec_rec *msr) {
 /**
  * Output the Producer header.
  */
-static void sec_auditlog_write_producer_header(modsec_rec *msr) {
+static json_object *sec_auditlog_write_producer_header(modsec_rec *msr) {
     char **signatures = NULL;
     char *text = NULL;
     int i;
+    json_object *j_sig = json_object_new_object();
 
     /* Try to write everything in one go. */
     if (msr->txcfg->component_signatures->nelts == 0) {
-        text = apr_psprintf(msr->mp, "Producer: %s.\n", MODSEC_MODULE_NAME_FULL);
-        sec_auditlog_write(msr, text, strlen(text));
+        //text = apr_psprintf(msr->mp, "Producer: %s.\n", MODSEC_MODULE_NAME_FULL);
+        //sec_auditlog_write(msr, text, strlen(text));
+        json_object_object_add(j_sig, "Producer", json_object_new_string(MODSEC_MODULE_NAME_FULL));
 
-        return;
+        return j_sig;
     }
 
     /* Start with the ModSecurity signature. */
-    text = apr_psprintf(msr->mp, "Producer: %s", MODSEC_MODULE_NAME_FULL);
-    sec_auditlog_write(msr, text, strlen(text));
+    //text = apr_psprintf(msr->mp, "Producer: %s", MODSEC_MODULE_NAME_FULL);
+    //sec_auditlog_write(msr, text, strlen(text));
+    json_object_object_add(j_sig, "Producer", json_object_new_string(MODSEC_MODULE_NAME_FULL));
 
 
     /* Then loop through the components and output individual signatures. */
+    json_object *j_sigs = json_object_new_array();
     signatures = (char **)msr->txcfg->component_signatures->elts;
     for(i = 0; i < msr->txcfg->component_signatures->nelts; i++) {
-        text = apr_psprintf(msr->mp, "; %s", (char *)signatures[i]);
-        sec_auditlog_write(msr, text, strlen(text));
+        //text = apr_psprintf(msr->mp, "; %s", (char *)signatures[i]);
+        //sec_auditlog_write(msr, text, strlen(text));
+        json_object_array_add(j_sigs, json_object_new_string((char *)signatures[i]));
     }
+    json_object_object_add(j_sig, "Additional Producers", j_sigs);
 
-    sec_auditlog_write(msr, ".\n", 2);
+    return j_sig;
 }
 
 /*
@@ -501,6 +509,7 @@ void sec_audit_logger(modsec_rec *msr) {
     char *buf = NULL, *pat = NULL;
     msc_parm *mparm = NULL;
     int arg_min, arg_max, sanitize_matched;
+    json_object *jobj = json_object_new_object();
 
     /* the boundary is used by both audit log types */
     msr->new_auditlog_boundary = create_auditlog_boundary(msr->r);
@@ -593,27 +602,26 @@ void sec_audit_logger(modsec_rec *msr) {
 
     /* AUDITLOG_PART_HEADER */
 
-    text = apr_psprintf(msr->mp, "--%s-%c--\n", msr->new_auditlog_boundary, AUDITLOG_PART_HEADER);
-    sec_auditlog_write(msr, text, strlen(text));
-
-    /* Format: time transaction_id remote_addr remote_port local_addr local_port */
-
-    text = apr_psprintf(msr->mp, "[%s] %s %s %u %s %u",
-        current_logtime(msr->mp), msr->txid, msr->remote_addr, msr->remote_port,
-        msr->local_addr, msr->local_port);
-    sec_auditlog_write(msr, text, strlen(text));
-
+    json_object *j_transaction = json_object_new_object();
+    json_object_object_add(j_transaction, "Time", json_object_new_string(current_logtime(msr->mp)));
+    json_object_object_add(j_transaction, "Transaction ID", json_object_new_string(msr->txid));
+    json_object_object_add(j_transaction, "Remote Address", json_object_new_string(msr->remote_addr));
+    json_object_object_add(j_transaction, "Remote Port", json_object_new_int(msr->remote_port));
+    json_object_object_add(j_transaction, "Local Address", json_object_new_string(msr->local_addr));
+    json_object_object_add(j_transaction, "Local Port", json_object_new_int(msr->local_port));
+    json_object_object_add(jobj, "Transaction", j_transaction);
 
     /* AUDITLOG_PART_REQUEST_HEADERS */
 
     if (strchr(msr->txcfg->auditlog_parts, AUDITLOG_PART_REQUEST_HEADERS) != NULL) {
-        text = apr_psprintf(msr->mp, "\n--%s-%c--\n", msr->new_auditlog_boundary, AUDITLOG_PART_REQUEST_HEADERS);
-        sec_auditlog_write(msr, text, strlen(text));
+        //text = apr_psprintf(msr->mp, "\n--%s-%c--\n", msr->new_auditlog_boundary, AUDITLOG_PART_REQUEST_HEADERS);
+        //sec_auditlog_write(msr, text, strlen(text));
 
         sanitize_request_line(msr);
 
-        sec_auditlog_write(msr, msr->request_line, strlen(msr->request_line));
-        sec_auditlog_write(msr, "\n", 1);
+        //sec_auditlog_write(msr, msr->request_line, strlen(msr->request_line));
+        //sec_auditlog_write(msr, "\n", 1);
+        json_object_object_add(jobj, "Request", json_object_new_string(msr->request_line));
 
         arr = apr_table_elts(msr->request_headers);
         te = (apr_table_entry_t *)arr->elts;
@@ -621,10 +629,12 @@ void sec_audit_logger(modsec_rec *msr) {
         tarr_pattern = apr_table_elts(msr->pattern_to_sanitize);
         telts_pattern = (const apr_table_entry_t*)tarr_pattern->elts;
 
+        json_object *j_headers = json_object_new_object();
+
         for (i = 0; i < arr->nelts; i++) {
             sanitized_partial = 0;
             sanitize_matched = 0;
-            text = apr_psprintf(msr->mp, "%s: %s\n", te[i].key, te[i].val);
+            //text = apr_psprintf(msr->mp, "%s: %s\n", te[i].key, te[i].val);
             if (apr_table_get(msr->request_headers_to_sanitize, te[i].key) != NULL) {
                 buf = apr_psprintf(msr->mp, "%s",text+strlen(te[i].key)+2);
 
@@ -656,13 +666,17 @@ void sec_audit_logger(modsec_rec *msr) {
                 }
 
                 if(sanitized_partial == 1 && sanitize_matched == 0)  {
-                    text = apr_psprintf(msr->mp, "%s: %s\n", te[i].key, buf);
+                    //text = apr_psprintf(msr->mp, "%s: %s\n", te[i].key, json_object_new_string(buf));
+                    json_object_object_add(j_headers, te[i].key, json_object_new_string(buf));
                 } else {
-                    memset(text + strlen(te[i].key) + 2, '*', strlen(te[i].val));
+                    //memset(text + strlen(te[i].key) + 2, '*', strlen(te[i].val));
+                    json_object_object_add(j_headers, te[i].key, json_object_new_string("****")); //fix this later
                 }
             }
-            sec_auditlog_write(msr, text, strlen(text));
+            // no pattern match, so just add the k/v pair straight to the array
+            json_object_object_add(j_headers, te[i].key, json_object_new_string(te[i].val));
         }
+        json_object_object_add(jobj, "Request Headers", j_headers);
     }
 
     /* AUDITLOG_PART_REQUEST_BODY */
@@ -749,9 +763,10 @@ void sec_audit_logger(modsec_rec *msr) {
                 unsigned int chunk_offset = 0;
                 unsigned int sanitize_offset = 0;
                 unsigned int sanitize_length = 0;
+                json_object *j_body = json_object_new_array();
 
-                text = apr_psprintf(msr->mp, "\n--%s-%c--\n", msr->new_auditlog_boundary, AUDITLOG_PART_REQUEST_BODY);
-                sec_auditlog_write(msr, text, strlen(text));
+                //text = apr_psprintf(msr->mp, "\n--%s-%c--\n", msr->new_auditlog_boundary, AUDITLOG_PART_REQUEST_BODY);
+                //sec_auditlog_write(msr, text, strlen(text));
 
                 for(;;) {
                     rc = modsecurity_request_body_retrieve(msr, &chunk, -1, &my_error_msg);
@@ -810,18 +825,22 @@ void sec_audit_logger(modsec_rec *msr) {
 
                         /* Write the sanitized chunk to the log
                          * and advance to the next chunk. */
-                        sec_auditlog_write(msr, chunk->data, chunk->length);
+                        //sec_auditlog_write(msr, chunk->data, chunk->length);
+                        json_object_array_add(j_body, json_object_new_string(chunk->data));
                         chunk_offset += chunk->length;
                     }
 
                     if (rc <= 0) {
                         break;
                     }
+
                 }
 
                 if (rc < 0) {
                     msr_log(msr, 1, "Audit log: %s", my_error_msg);
                 }
+
+                json_object_object_add(jobj, "Request Body", j_body);
 
                 modsecurity_request_body_retrieve_end(msr);
             }
@@ -838,9 +857,7 @@ void sec_audit_logger(modsec_rec *msr) {
             if (buffer == NULL) {
                 msr_log(msr, 1, "Audit log: Failed to reconstruct request body.");
             } else {
-                text = apr_psprintf(msr->mp, "\n--%s-%c--\n", msr->new_auditlog_boundary, AUDITLOG_PART_FAKE_REQUEST_BODY);
-                sec_auditlog_write(msr, text, strlen(text));
-                sec_auditlog_write(msr, buffer, strlen(buffer));
+                json_object_object_add(jobj, "Fake Request Body", json_object_new_string(buffer));
             }
         }
     }
@@ -848,19 +865,23 @@ void sec_audit_logger(modsec_rec *msr) {
     /* AUDITLOG_PART_A_RESPONSE_HEADERS */
 
     if (strchr(msr->txcfg->auditlog_parts, AUDITLOG_PART_A_RESPONSE_HEADERS) != NULL) {
-        text = apr_psprintf(msr->mp, "\n--%s-%c--\n", msr->new_auditlog_boundary, AUDITLOG_PART_A_RESPONSE_HEADERS);
-        sec_auditlog_write(msr, text, strlen(text));
+        //text = apr_psprintf(msr->mp, "\n--%s-%c--\n", msr->new_auditlog_boundary, AUDITLOG_PART_A_RESPONSE_HEADERS);
+        //sec_auditlog_write(msr, text, strlen(text));
 
         /* There are no response headers (or the status line) in HTTP 0.9 */
         if (msr->response_headers_sent) {
+
+            json_object *j_headers = json_object_new_object();
+
+            json_object *j_proto = json_object_new_object();
             if (msr->status_line != NULL) {
-                text = apr_psprintf(msr->mp, "%s %s\n", msr->response_protocol,
-                        msr->status_line);
+                text = apr_psprintf(msr->mp, "%s", msr->status_line);
             } else {
-                text = apr_psprintf(msr->mp, "%s %u\n", msr->response_protocol,
-                        msr->response_status);
+                text = apr_psprintf(msr->mp, "%s", msr->response_status);
             }
-            sec_auditlog_write(msr, text, strlen(text));
+            json_object_object_add(j_proto, "Protocol", json_object_new_string(msr->response_protocol));
+            json_object_object_add(j_proto, "Status", json_object_new_string(text));
+            json_object_object_add(jobj, "Response", j_proto);
 
             /* Output headers */
 
@@ -873,7 +894,7 @@ void sec_audit_logger(modsec_rec *msr) {
             for (i = 0; i < arr->nelts; i++) {
                 sanitized_partial = 0;
                 sanitize_matched = 0;
-                text = apr_psprintf(msr->mp, "%s: %s\n", te[i].key, te[i].val);
+                //text = apr_psprintf(msr->mp, "%s: %s\n", te[i].key, te[i].val);
                 if (apr_table_get(msr->response_headers_to_sanitize, te[i].key) != NULL) {
                     buf = apr_psprintf(msr->mp, "%s",text+strlen(te[i].key)+2);
 
@@ -906,12 +927,21 @@ void sec_audit_logger(modsec_rec *msr) {
 
                     if(sanitized_partial == 1 && sanitize_matched == 0)  {
                         text = apr_psprintf(msr->mp, "%s: %s\n", te[i].key, buf);
+						json_object_object_add(j_headers, te[i].key, json_object_new_string(buf));
                     } else {
-                        memset(text + strlen(te[i].key) + 2, '*', strlen(te[i].val));
+                        //memset(text + strlen(te[i].key) + 2, '*', strlen(te[i].val));
+                        json_object_object_add(j_headers, te[i].key, json_object_new_string("****")); //fix this later
                     }
                 }
-                sec_auditlog_write(msr, text, strlen(text));
+                // no pattern match, so just add the k/v pair straight to the array
+                json_object_object_add(j_headers, te[i].key, json_object_new_string(te[i].val));
             }
+            /* Server */
+            if (msr->server_software != NULL) {
+                json_object_object_add(j_headers, "Server", json_object_new_string(msr->server_software));
+            }
+
+            json_object_object_add(jobj, "Response Headers", j_headers);
         }
     }
 
@@ -921,9 +951,7 @@ void sec_audit_logger(modsec_rec *msr) {
 
     if (strchr(msr->txcfg->auditlog_parts, AUDITLOG_PART_RESPONSE_BODY) != NULL) {
         if (msr->resbody_data != NULL) {
-            text = apr_psprintf(msr->mp, "\n--%s-%c--\n", msr->new_auditlog_boundary, AUDITLOG_PART_RESPONSE_BODY);
-            sec_auditlog_write(msr, text, strlen(text));
-            sec_auditlog_write(msr, msr->resbody_data, msr->resbody_length);
+            json_object_object_add(jobj, "Response Body", json_object_new_string("to be added..."));
             wrote_response_body = 1;
         }
     }
@@ -933,65 +961,43 @@ void sec_audit_logger(modsec_rec *msr) {
     if (strchr(msr->txcfg->auditlog_parts, AUDITLOG_PART_TRAILER) != NULL) {
         apr_time_t now = apr_time_now();
 
-        text = apr_psprintf(msr->mp, "\n--%s-%c--\n", msr->new_auditlog_boundary, AUDITLOG_PART_TRAILER);
-        sec_auditlog_write(msr, text, strlen(text));
+        json_object *j_messages = json_object_new_array();
 
         /* Messages */
         for(i = 0; i < msr->alerts->nelts; i++) {
-            text = apr_psprintf(msr->mp, "Message: %s\n", ((char **)msr->alerts->elts)[i]);
-            sec_auditlog_write(msr, text, strlen(text));
+            json_object_array_add(j_messages, ((json_object **)msr->alerts->elts)[i]);
         }
+        json_object_object_add(jobj, "Messages", j_messages);
 
+        json_object *j_errors = json_object_new_array();
         /* Apache error messages */
         for(i = 0; i < msr->error_messages->nelts; i++) {
             error_message_t *em = (((error_message_t **)msr->error_messages->elts)[i]);
-            text = apr_psprintf(msr->mp, "Apache-Error: %s\n",
-                format_error_log_message(msr->mp, em));
-            sec_auditlog_write(msr, text, strlen(text));
+            json_object_array_add(j_errors, json_object_new_string(format_error_log_message(msr->mp, em)));
+        }
+        if (json_object_array_length(j_errors) > 0) {
+            json_object_object_add(jobj, "Errors", j_errors);
         }
 
         /* Action */
         if (msr->was_intercepted) {
-            text = apr_psprintf(msr->mp, "Action: Intercepted (phase %d)\n", msr->intercept_phase);
-            sec_auditlog_write(msr, text, strlen(text));
+            json_object_object_add(jobj, "Intercepted", json_object_new_int(msr->intercept_phase));
         }
-
-        /* Apache-Handler */
-        if (msr->r->handler != NULL) {
-            text = apr_psprintf(msr->mp, "Apache-Handler: %s\n", msr->r->handler);
-            sec_auditlog_write(msr, text, strlen(text));
-        }
-
-        /* Stopwatch; left in for compatibility reasons */
-        text = apr_psprintf(msr->mp, "Stopwatch: %" APR_TIME_T_FMT " %" APR_TIME_T_FMT " (- - -)\n",
-            msr->request_time, (now - msr->request_time));
-        sec_auditlog_write(msr, text, strlen(text));
 
         /* Stopwatch2 */
         {
             char *perf_all = format_all_performance_variables(msr, msr->mp);
-
-            text = apr_psprintf(msr->mp, "Stopwatch2: %" APR_TIME_T_FMT " %" APR_TIME_T_FMT
-                "; %s\n", msr->request_time, (now - msr->request_time), perf_all);
-
-            sec_auditlog_write(msr, text, strlen(text));
+            json_object_object_add(jobj, "Stopwatch", json_object_new_string(perf_all));
         }
 
         /* Our response body does not contain chunks */
         /* ENH Only write this when the output was chunked. */
         /* ENH Add info when request body was decompressed, dechunked too. */
         if (wrote_response_body) {
-            text = apr_psprintf(msr->mp, "Response-Body-Transformed: Dechunked\n");
-            sec_auditlog_write(msr, text, strlen(text));
+            json_object_object_add(jobj, "Response-Body-Transformed: Dechunked", json_object_new_int(1));
         }
 
-        sec_auditlog_write_producer_header(msr);
-
-        /* Server */
-        if (msr->server_software != NULL) {
-            text = apr_psprintf(msr->mp, "Server: %s\n", msr->server_software);
-            sec_auditlog_write(msr, text, strlen(text));
-        }
+        json_object_object_add(jobj, "Producer Header", sec_auditlog_write_producer_header(msr));
 
         /* Sanitised arguments */
         {
@@ -1002,15 +1008,12 @@ void sec_audit_logger(modsec_rec *msr) {
             telts = (const apr_table_entry_t*)tarr->elts;
 
             if (tarr->nelts > 0) {
-                text = apr_psprintf(msr->mp, "Sanitised-Args: ");
-                sec_auditlog_write(msr, text, strlen(text));
-            }
-
-            for(i = 0; i < tarr->nelts; i++) {
-                msc_arg *arg = (msc_arg *)telts[i].val;
-                text = apr_psprintf(msr->mp, "%s\"%s\"%s", ((i == 0) ? "" : ", "),
-                    log_escape(msr->mp, arg->name), ((i == (tarr->nelts - 1)) ? ".\n" : ""));
-                sec_auditlog_write(msr, text, strlen(text));
+                json_object *j_sanitized_args = json_object_new_array();
+                for(i = 0; i < tarr->nelts; i++) {
+                    msc_arg *arg = (msc_arg *)telts[i].val;
+                    json_object_array_add(j_sanitized_args, json_object_new_string(arg->name));
+                }
+                json_object_object_add(jobj, "Sanitized Arguments", j_sanitized_args);
             }
         }
 
@@ -1023,14 +1026,11 @@ void sec_audit_logger(modsec_rec *msr) {
             telts = (const apr_table_entry_t*)tarr->elts;
 
             if (tarr->nelts > 0) {
-                text = apr_psprintf(msr->mp, "Sanitised-Request-Headers: ");
-                sec_auditlog_write(msr, text, strlen(text));
-            }
-
-            for(i = 0; i < tarr->nelts; i++) {
-                text = apr_psprintf(msr->mp, "%s\"%s\"%s", ((i == 0) ? "" : ", "),
-                    log_escape(msr->mp, telts[i].key), ((i == (tarr->nelts - 1)) ? ".\n" : ""));
-                sec_auditlog_write(msr, text, strlen(text));
+                json_object *j_sanitized_request_headers = json_object_new_array();
+                for(i = 0; i < tarr->nelts; i++) {
+                    json_object_array_add(j_sanitized_request_headers, json_object_new_string(telts[i].key));
+                }
+                json_object_object_add(jobj, "Sanitized Request Headers", j_sanitized_request_headers);
             }
         }
 
@@ -1045,15 +1045,16 @@ void sec_audit_logger(modsec_rec *msr) {
             if (tarr->nelts > 0) {
                 text = apr_psprintf(msr->mp, "Sanitised-Response-Headers: ");
                 sec_auditlog_write(msr, text, strlen(text));
-            }
-
-            for(i = 0; i < tarr->nelts; i++) {
-                text = apr_psprintf(msr->mp, "%s\"%s\"%s", ((i == 0) ? "" : ", "),
-                    log_escape(msr->mp, telts[i].key), ((i == (tarr->nelts - 1)) ? ".\n" : ""));
-                sec_auditlog_write(msr, text, strlen(text));
+            
+                json_object *j_sanitized_response_headers = json_object_new_array();
+                for(i = 0; i < tarr->nelts; i++) {
+                    json_object_array_add(j_sanitized_response_headers, json_object_new_string(telts[i].key));
+                }
+                json_object_object_add(jobj, "Sanitized Response Headers", j_sanitized_response_headers);
             }
         }
 
+        // TODO
         /* Web application info. */
         if ( ((msr->txcfg->webappid != NULL)&&(strcmp(msr->txcfg->webappid, "default") != 0))
             || (msr->sessionid != NULL) || (msr->userid != NULL))
@@ -1065,6 +1066,7 @@ void sec_audit_logger(modsec_rec *msr) {
             sec_auditlog_write(msr, text, strlen(text));
         }
 
+        // TODO
         if ( ((msr->txcfg->sensor_id != NULL)&&(strcmp(msr->txcfg->sensor_id, "default") != 0)))
         {
             text = apr_psprintf(msr->mp, "Sensor-Id: \"%s\"\n",
@@ -1074,11 +1076,10 @@ void sec_audit_logger(modsec_rec *msr) {
 
 
         if (msr->txcfg->is_enabled > 0) {
-            text = apr_psprintf(msr->mp, "Engine-Mode: \"%s\"\n",
-                msr->txcfg->is_enabled == 1 ? "DETECTION_ONLY" : "ENABLED"),
-            sec_auditlog_write(msr, text, strlen(text));
+            json_object_object_add(jobj, "Engine Mode", msr->txcfg->is_enabled == 1 ? json_object_new_string("DETECTION_ONLY") : json_object_new_string("ENABLED"));
         }
 
+        // TODO
         /* Rule performance time */
         if(msr->txcfg->max_rule_time > 0)   {
             const apr_array_header_t *tarr;
@@ -1107,35 +1108,34 @@ void sec_audit_logger(modsec_rec *msr) {
         unsigned int total_size = 0;
         int cfiles = 0;
 
-        text = apr_psprintf(msr->mp, "\n--%s-%c--\n", msr->new_auditlog_boundary, AUDITLOG_PART_UPLOADS);
-        sec_auditlog_write(msr, text, strlen(text));
 
         parts = (multipart_part **)msr->mpd->parts->elts;
         for(cfiles = 0; cfiles < msr->mpd->parts->nelts; cfiles++) {
             if (parts[cfiles]->type == MULTIPART_FILE) {
                 if(parts[cfiles]->filename != NULL) {
                     text = apr_psprintf(msr->mp, "%d,%u,\"%s\",\"%s\"\n", cfiles+1, parts[cfiles]->tmp_file_size, log_escape(msr->mp, parts[cfiles]->filename), log_escape(msr->mp, parts[cfiles]->content_type ? parts[cfiles]->content_type : "<Unknown ContentType>"));
-                    sec_auditlog_write(msr, text, strlen(text));
                     total_size += parts[cfiles]->tmp_file_size;
                 }
             }
         }
-        text = apr_psprintf(msr->mp, "Total,%u\n", total_size);
-        sec_auditlog_write(msr, text, strlen(text));
+        json_object_object_add(jobj, "Auditlog Part Uploads", json_object_new_string("To be added..."));
     }
 
     /* AUDITLOG_PART_MATCHEDRULES */
 
+    // TODO - Get rules as JSON objects for further detail in logging. This one will probably take a good chunk of time...
+
     if (strchr(msr->txcfg->auditlog_parts, AUDITLOG_PART_MATCHEDRULES) != NULL) {
-        text = apr_psprintf(msr->mp, "\n--%s-%c--\n", msr->new_auditlog_boundary, AUDITLOG_PART_MATCHEDRULES);
-        sec_auditlog_write(msr, text, strlen(text));
+        json_object *j_matchedrules = json_object_new_array();
 
         /* Matched Rules */
         for(i = 0; i < msr->matched_rules->nelts; i++) {
+            json_object *j_rule = json_object_new_object();
             rule = ((msre_rule **)msr->matched_rules->elts)[i];
-            if ((rule != NULL) && (rule->actionset != NULL) && rule->actionset->is_chained && (rule->chain_starter == NULL)) {
-                text = apr_psprintf(msr->mp, "%s\n", rule->unparsed);
-                sec_auditlog_write(msr, text, strlen(text));
+            if ((rule != NULL) && (rule->actionset != NULL) && rule->actionset->is_chained && (rule->chain_starter == NULL)) { // we have a valid match, and it's the start of the chain
+                json_object_object_add(j_rule, "Rule", json_object_new_string(rule->unparsed));
+                json_object_object_add(j_rule, "IsChained", json_object_new_boolean(1));
+                json_object_object_add(j_rule, "IsSubrule", json_object_new_boolean(0));
                 do {
                     if (rule->ruleset != NULL)   {
 
@@ -1143,34 +1143,42 @@ void sec_audit_logger(modsec_rec *msr) {
 
                         if (next_rule != NULL)  {
 
+                            json_object *j_subrule = json_object_new_object();
                             present = chained_is_matched(msr,next_rule);
+                            json_object_object_add(j_subrule, "Rule", json_object_new_string(next_rule->unparsed));
+                            json_object_object_add(j_subrule, "IsChained", json_object_new_boolean(1));
+                            json_object_object_add(j_subrule, "IsSubrule", json_object_new_boolean(1));
 
                             if (present == 0)   {
-                                text = apr_psprintf(msr->mp, "#%s\n",next_rule->unparsed);
+                                json_object_object_add(j_subrule, "IsPresent", json_object_new_boolean(0));
                             } else  {
-                                text = apr_psprintf(msr->mp, "%s\n",next_rule->unparsed);
+                                json_object_object_add(j_subrule, "IsPresent", json_object_new_boolean(1));
                                 i++;
                             }
 
-                            sec_auditlog_write(msr, text, strlen(text));
+                            json_object_object_add(j_rule, "Subrule", j_subrule);
                         }
                     }
                     rule = next_rule;
                 } while (rule != NULL && rule->actionset != NULL && rule->actionset->is_chained);
-                text = apr_psprintf(msr->mp, "\n");
-                sec_auditlog_write(msr, text, strlen(text));
+                json_object_array_add(j_matchedrules, j_rule);
             } else  {
-                if ((rule != NULL) && (rule->actionset != NULL) && !rule->actionset->is_chained && (rule->chain_starter == NULL)) {
-                    text = apr_psprintf(msr->mp, "%s\n\n", rule->unparsed);
-                    sec_auditlog_write(msr, text, strlen(text));
+                if ((rule != NULL) && (rule->actionset != NULL) && !rule->actionset->is_chained && (rule->chain_starter == NULL)) { // we have a valid match, but its not chained, so add it as its own JSON object
+                    json_object_object_add(j_rule, "Rule", json_object_new_string(rule->unparsed));
+                    json_object_object_add(j_rule, "IsChained", json_object_new_boolean(0));
                 }
             }
+
+            json_object_array_add(j_matchedrules, j_rule);
         }
+
+        json_object_object_add(jobj, "Matched Rules", j_matchedrules);
     }
 
     /* AUDITLOG_PART_ENDMARKER */
 
-    text = apr_psprintf(msr->mp, "\n--%s-%c--\n", msr->new_auditlog_boundary, AUDITLOG_PART_ENDMARKER);
+    // TODO - confirm jobj is valid JSON object
+    text = apr_psprintf(msr->mp, "%s\n", json_object_to_json_string(jobj));
     sec_auditlog_write(msr, text, strlen(text));
 
     /* Return here if we were writing to a serial log

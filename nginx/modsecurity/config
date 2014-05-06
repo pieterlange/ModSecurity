@@ -8,7 +8,7 @@ CFLAGS="$CFLAGS \
     -DWITH_LUA -I/usr/include/lua5.1   \
     -DWITH_PCRE_STUDY -DMODSEC_PCRE_MATCH_LIMIT=1500 -DMODSEC_PCRE_MATCH_LIMIT_RECURSION=1500  -DREQUEST_EARLY          \
      \
-    -DWITH_YAJL -I/usr/include/yajl  "
+    -I/usr/include/json-c  "
 
 
 CORE_LIBS="$CORE_LIBS \
@@ -20,7 +20,7 @@ CORE_LIBS="$CORE_LIBS \
     -llua5.1   \
     -lpcre \
     -L/usr/lib  -lcap \
-    -lyajl  "
+    -ljson-c  "
 
 ngx_addon_name=ngx_http_modsecurity
 

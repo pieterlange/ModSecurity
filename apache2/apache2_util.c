@@ -192,7 +192,7 @@ char *get_env_var(request_rec *r, char *name) {
  * true, the message will be stripped of any trailing newline and any
  * required bytes will be escaped.
  */
-static void internal_log_ex(request_rec *r, directory_config *dcfg, modsec_rec *msr,
+static int internal_log_ex(request_rec *r, directory_config *dcfg, modsec_rec *msr,
     int level, int fixup, const char *text, va_list ap)
 {
     apr_size_t nbytes, nbytes_written;
@@ -220,7 +220,7 @@ static void internal_log_ex(request_rec *r, directory_config *dcfg, modsec_rec *
      * or if the log level of the message is higher than
      * wanted in the log.
      */
-    if ((level > 3)&&( (debuglog_fd == NULL) || (level > filter_debug_level) )) return;
+    if ((level > 3)&&( (debuglog_fd == NULL) || (level > filter_debug_level) )) return 0;
 
     /* Construct the message. */
     apr_vsnprintf(str1, sizeof(str1), text, ap);
@@ -269,36 +269,33 @@ static void internal_log_ex(request_rec *r, directory_config *dcfg, modsec_rec *
 
 #if AP_SERVER_MAJORVERSION_NUMBER > 1 && AP_SERVER_MINORVERSION_NUMBER > 2
         ap_log_error(APLOG_MARK, APLOG_ERR | APLOG_NOERRNO, 0, r->server,
-            "[client %s] ModSecurity: %s%s [uri \"%s\"]%s", r->useragent_ip ? r->useragent_ip : r->connection->client_ip, str1,
-            hostname, log_escape(msr->mp, r->uri), unique_id);
+            "[client %s] ModSecurity: %s", r->useragent_ip ? r->useragent_ip : r->connection->client_ip, str1);
 #else
         ap_log_error(APLOG_MARK, APLOG_ERR | APLOG_NOERRNO, 0, r->server,
-                "[client %s] ModSecurity: %s%s [uri \"%s\"]%s", msr->remote_addr ? msr->remote_addr : r->connection->remote_ip, str1,
-                hostname, log_escape(msr->mp, r->uri), unique_id);
+                "[client %s] ModSecurity: %s", msr->remote_addr ? msr->remote_addr : r->connection->remote_ip, str1);
 #endif
 
         /* Add this message to the list. */
         if (msr != NULL) {
             /* Force relevency if this is an alert */
             msr->is_relevant++;
-
-            *(const char **)apr_array_push(msr->alerts) = apr_pstrdup(msr->mp, str1);
         }
     }
 
-    return;
+    return 1;
 }
 
 /**
  * Logs one message at the given level to the debug log (and to the
  * Apache error log if the message is important enough.
  */
-void msr_log(modsec_rec *msr, int level, const char *text, ...) {
+int msr_log(modsec_rec *msr, int level, const char *text, ...) {
     va_list ap;
 
     va_start(ap, text);
-    internal_log_ex(msr->r, msr->txcfg, msr, level, 0, text, ap);
+    int ret = internal_log_ex(msr->r, msr->txcfg, msr, level, 0, text, ap);
     va_end(ap);
+    return ret;
 }
 
 

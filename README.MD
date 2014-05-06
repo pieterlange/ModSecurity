@@ -26,10 +26,15 @@ Project Site:
 https://www.owasp.org/index.php/Category:OWASP_ModSecurity_Core_Rule_Set_Project
 
 
+
+
 ##############################################
 
 This project is continually in development, and should be deployed with caution.
 Please see the TODO file for a list of ongoing improvements to this branch.
+
+Please note that this requires the installation of JSON-C library,
+available at https://github.com/json-c/json-c
 
 ##############################################
 

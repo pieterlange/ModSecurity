@@ -14,7 +14,6 @@
 
 #include "msc_status_engine.h"
 #include "apr_sha1.h"
-#include "modsecurity_config.h"
 
 #ifdef WIN32
 #include <winsock2.h>
@@ -27,6 +26,7 @@
 #include <net/if.h>
 #include <net/if_dl.h>
 #include <netinet/in.h>
+#include <sys/utsname.h>
 #include <sys/types.h>
 #include <sys/socket.h>
 #ifndef IFT_ETHER
@@ -34,13 +34,12 @@
 #endif
 #endif
 
-#if (defined(__linux__) || defined(__gnu_linux__))
+#ifdef __gnu_linux__
+#include <sys/utsname.h>
 #include <linux/if.h>
 #include <linux/sockios.h>
 #endif
-#ifdef HAVE_SYS_UTSNAME_H
-#include <sys/utsname.h>
-#endif
+
 
 // Bese32 encode, based on:
 // https://code.google.com/p/google-authenticator/source/browse/libpam/base32.c
@@ -134,9 +133,7 @@ int DSOLOCAL msc_status_engine_machine_name(char *machine_name, size_t len) {
     if (GetComputerName(machine_name, &lenComputerName) == 0) {
         goto failed;
     }
-#endif
-
-#ifdef HAVE_SYS_UTSNAME_H
+#else
    static struct utsname u;
 
    if ( uname( &u ) < 0 ) {
@@ -183,7 +180,7 @@ int DSOLOCAL msc_status_engine_mac_address (unsigned char *mac)
     freeifaddrs( ifaphead );
 #endif
 
-#if (defined(__linux__) || defined(__gnu_linux__))
+#if __gnu_linux__
     struct ifconf conf;
     int sock = socket(AF_INET, SOCK_DGRAM, IPPROTO_IP );
     struct ifreq* ifr;

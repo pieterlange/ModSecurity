@@ -1,0 +1,7 @@
+* Further testing with varying deployment environment integrations. Source has been successfully built, but active testing of this branch has been done in limited environments. Apache and IIS need to be tested further.
+
+* Re-examine JSON-C library inclusion in the build process. This was hastily added but needs to be looked over by a more experienced pair of eyes.
+
+* Several items still need to be added to the JSON object in msc_logging.c- specifically, response body, web app info, sensor id, and rule performance
+
+* Matched rules need to be broken into a JSON object (as opposed to being logged as a string)

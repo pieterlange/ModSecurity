@@ -55,6 +55,7 @@ typedef struct msc_parm msc_parm;
 #include "http_config.h"
 #include "http_log.h"
 #include "http_protocol.h"
+#include <json-c/json.h>
 
 #if defined(WITH_LUA)
 #include "msc_lua.h"
@@ -707,7 +708,7 @@ apr_status_t DSOLOCAL modsecurity_request_body_retrieve(modsec_rec *msr, msc_dat
 void DSOLOCAL msc_add(modsec_rec *msr, int level, msre_actionset *actionset,
     const char *action_message, const char *rule_message);
 
-const char DSOLOCAL *msc_alert_message(modsec_rec *msr, msre_actionset *actionset, const char *action_message,
+json_object DSOLOCAL *msc_alert_message(modsec_rec *msr, msre_actionset *actionset, const char *action_message,
     const char *rule_message);
 
 void DSOLOCAL msc_alert(modsec_rec *msr, int level, msre_actionset *actionset, const char *action_message,

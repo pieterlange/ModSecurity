@@ -41,6 +41,7 @@ typedef struct msre_cache_rec msre_cache_rec;
 #include "persist_dbm.h"
 #include "apache2.h"
 #include "http_config.h"
+#include <json-c/json.h>
 
 #if defined(WITH_LUA)
 #include "msc_lua.h"
@@ -396,7 +397,7 @@ int DSOLOCAL msre_parse_generic(apr_pool_t *pool, const char *text, apr_table_t 
 apr_status_t DSOLOCAL msre_parse_vars(msre_ruleset *ruleset, const char *text,
     apr_array_header_t *arr, char **error_msg);
 
-char DSOLOCAL *msre_format_metadata(modsec_rec *msr, msre_actionset *actionset);
+json_object DSOLOCAL *msre_format_metadata(modsec_rec *msr, msre_actionset *actionset);
 
 /* -- Data Cache -- */
 

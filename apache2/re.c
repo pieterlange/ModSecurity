@@ -13,6 +13,7 @@
 */
 
 #include <ctype.h>
+#include <json-c/json.h>
 
 #include "re.h"
 
@@ -2175,9 +2176,9 @@ static const char *msre_format_severity(int severity) {
 }
 
 /**
- * Creates a string containing the metadata of the supplied rule.
+ * Creates a JSON object containing the metadata of the supplied rule.
  */
-char *msre_format_metadata(modsec_rec *msr, msre_actionset *actionset) {
+json_object *msre_format_metadata(modsec_rec *msr, msre_actionset *actionset) {
     const apr_array_header_t *tarr;
     const apr_table_entry_t *telts;
     char *id = "";
@@ -2188,78 +2189,65 @@ char *msre_format_metadata(modsec_rec *msr, msre_actionset *actionset) {
     char *accuracy = "";
     char *maturity = "";
     char *version = "";
-    char *tags = "";
     char *fn = "";
     int k;
+    json_object *jobj = json_object_new_object();
 
-    if (actionset == NULL) return "";
+    if (actionset == NULL) return json_object_new_string("");
 
     if ((actionset->rule != NULL) && (actionset->rule->filename != NULL)) {
-        fn = apr_psprintf(msr->mp, " [file \"%s\"] [line \"%d\"]",
-                actionset->rule->filename, actionset->rule->line_num);
+        json_object_object_add(jobj, "File", json_object_new_string(actionset->rule->filename));
+        json_object_object_add(jobj, "Line", json_object_new_int(actionset->rule->line_num));
     }
     if (actionset->id != NULL) {
-        id = apr_psprintf(msr->mp, " [id \"%s\"]",
-                log_escape(msr->mp, actionset->id));
+        json_object_object_add(jobj, "ID", json_object_new_string(actionset->id));
     }
     if (actionset->rev != NULL) {
-        rev = apr_psprintf(msr->mp, " [rev \"%s\"]",
-                log_escape(msr->mp, actionset->rev));
+        json_object_object_add(jobj, "Rev", json_object_new_string(actionset->rev));
     }
     if (actionset->msg != NULL) {
         /* Expand variables in the message string. */
         msc_string *var = (msc_string *)apr_pcalloc(msr->mp, sizeof(msc_string));
         var->value = (char *)actionset->msg;
-        var->value_len = strlen(actionset->msg);
         expand_macros(msr, var, NULL, msr->mp);
 
-        msg = apr_psprintf(msr->mp, " [msg \"%s\"]",
-                log_escape_ex(msr->mp, var->value, var->value_len));
+        json_object_object_add(jobj, "Msg", json_object_new_string(var->value));
     }
     if (actionset->logdata != NULL) {
         /* Expand variables in the message string. */
         msc_string *var = (msc_string *)apr_pcalloc(msr->mp, sizeof(msc_string));
         var->value = (char *)actionset->logdata;
-        var->value_len = strlen(actionset->logdata);
         expand_macros(msr, var, NULL, msr->mp);
 
-        logdata = apr_psprintf(msr->mp, " [data \"%s",
-                log_escape_hex(msr->mp, (unsigned char *)var->value, var->value_len));
-        logdata = apr_pstrcat(msr->mp, logdata, "\"]", NULL);
+        // If it is > 512 bytes, then truncate at 512 with ellipsis.
 
-        /* If it is > 512 bytes, then truncate at 512 with ellipsis.
-         * NOTE: 512 actual data + 9 bytes of label = 521
-         */
-        if (strlen(logdata) > 521) {
-            logdata[517] = '.';
-            logdata[518] = '.';
-            logdata[519] = '.';
-            logdata[520] = '"';
-            logdata[521] = ']';
-            logdata[522] = '\0';
+        if (strlen(var->value) > 512) {
+            var->value[510] = '.';
+            var->value[511] = '.';
+            var->value[512] = '.';
+            var->value[513] = '\0';
         }
+
+        json_object_object_add(jobj, "Data", json_object_new_string(var->value));
     }
     if ((actionset->severity >= 0)&&(actionset->severity <= 7)) {
-        severity = apr_psprintf(msr->mp, " [severity \"%s\"]",
-                msre_format_severity(actionset->severity));
+        json_object_object_add(jobj, "Severity", json_object_new_int(actionset->severity));
     }
     if (actionset->version != NULL) {
-        version = apr_psprintf(msr->mp, " [ver \"%s\"]",
-                log_escape(msr->mp, actionset->version));
+        json_object_object_add(jobj, "Ver", json_object_new_string(actionset->version));
     }
     if (actionset->maturity >= 0) {
-        maturity = apr_psprintf(msr->mp, " [maturity \"%d\"]",
-                actionset->maturity);
+        json_object_object_add(jobj, "Maturity", json_object_new_int(actionset->maturity));
     }
     if (actionset->accuracy >= 0) {
-        accuracy = apr_psprintf(msr->mp, " [accuracy \"%d\"]",
-                actionset->accuracy);
+        json_object_object_add(jobj, "Accuracy", json_object_new_int(actionset->accuracy));
     }
 
     /* Extract rule tags from the action list. */
     tarr = apr_table_elts(actionset->actions);
     telts = (const apr_table_entry_t*)tarr->elts;
 
+    json_object *j_tags = json_object_new_array();
     for (k = 0; k < tarr->nelts; k++) {
         msre_action *action = (msre_action *)telts[k].val;
         if (strcmp(telts[k].key, "tag") == 0) {
@@ -2267,15 +2255,17 @@ char *msre_format_metadata(modsec_rec *msr, msre_actionset *actionset) {
             msc_string *var = (msc_string *)apr_pcalloc(msr->mp, sizeof(msc_string));
 
             var->value = (char *)action->param;
-            var->value_len = strlen(action->param);
             expand_macros(msr, var, NULL, msr->mp);
 
-            tags = apr_psprintf(msr->mp, "%s [tag \"%s\"]", tags,
-               log_escape(msr->mp, var->value));
+            json_object_array_add(j_tags, json_object_new_string(var->value));
         }
     }
 
-    return apr_pstrcat(msr->mp, fn, id, rev, msg, logdata, severity, version, maturity, accuracy, tags, NULL);
+    if (json_object_array_length(j_tags) > 0) {
+        json_object_object_add(jobj, "Tags", j_tags);
+    }
+
+    return jobj;
 }
 
 char * msre_rule_generate_unparsed(apr_pool_t *pool,  const msre_rule *rule, const char *targets,
@@ -2532,18 +2522,12 @@ static void msre_perform_disruptive_actions(modsec_rec *msr, msre_rule *rule,
         /* If "nolog" was used log at a higher level to prevent an "alert". */
         if (actionset->log == 0) {
             log_level = 4;
-
-            /* But, if "auditlog" is enabled, then still add the message. */
-            if (actionset->auditlog != 0) {
-                *(const char **)apr_array_push(msr->alerts) = msc_alert_message(msr, actionset, NULL, message);
-            }
-
         }
         else {
             log_level = 2;
         }
 
-        msc_alert(msr, log_level, actionset, "Warning.", message);
+        msc_alert(msr, log_level, actionset, "Warning", message);
 
         /* However, this will mark the txn relevant again if it is <= 3,
          * which will mess up noauditlog.  We need to compensate for this
